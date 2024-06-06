@@ -1,52 +1,58 @@
-##### ----- correlations GTI and PPI pillars, graph
+##### ----- correlations between GTI and PPI, plus general scatteplots
 
-##### ----- get indicators
-#low levels of corruption
-tmp1<- iepg_get(26)%>% select(geocode, geoname, value, year)%>% rename(low.levels.of.corruption = value)
-# acceptance of the rights of others
-tmp2<- iepg_get(1)%>% 
-  select(geocode, geoname, value, year) %>% rename(acceptance_of_rigths_of_others = value)
-# sound business environment
-tmp3<- iepg_get(33)%>% 
-  select(geocode, geoname, value, year) %>% rename(sounds.business.environment = value)
-# well-functioning government
-tmp4<- iepg_get(35)%>% 
-  select(geocode, geoname, value, year) %>% rename(well.functioning.government = value)
-# equitable distribution of resources
-tmp5<- iepg_get(6)%>% 
-  select(geocode, geoname, value, year) %>% rename(equitable.distribution.of.resources = value)
-# free flow of information
-tmp6<- iepg_get(11)%>% 
-  select(geocode, geoname, value, year) %>% rename(free.flow.of.information = value)
-# good relations with neighbors
-tmp7<- iepg_get(15)%>% 
-  select(geocode, geoname, value, year) %>% rename(good.relations.with.neighbours = value)
-# high levels of human capital
-tmp8<- iepg_get(20)%>% 
-  select(geocode, geoname, value, year) %>% rename(high.levels.of.human.capital = value)
-# ppi score
-tmp9<- iepg_get(27)%>%
-  select(geocode, geoname, value, year) %>% rename (ppi= value)
+##### ----- get indicators, database has values only for 2023
+#-----------------------------------------------------------------------------------------------------------------------=
 
-#gti
+# Define a function to get and rename the data from ppi that will be used for correlations
+f_GetAndRename <- function(indicator_id, new_name) {
+    iepg_get(indicator_id) %>%
+      select(geocode, geoname, value, year) %>%
+      rename(!!new_name := value)
+  }
+
+# List of indicator IDs and their corresponding new names
+indicators <- list(
+  "low.levels.of.corruption" = 26,
+  "acceptance.of.rigths.of.others" = 1,
+  "sounds.business.environment" = 33,
+  "well.functioning.government" = 35,
+  "equitable.distribution.of.resources" = 6,
+  "free.flow.of.information" = 11,
+  "good.relations.with.neighbours" = 15,
+  "high.levels.of.human.capital" = 20,
+  "ppi" = 27
+)
+
+# Apply the get_and_rename function to each indicator and store results in a list
+data_list <- lapply(names(indicators), function(name) {
+  get_and_rename(indicators[[name]], name)
+})
+
+# Combine all data frames in the list
+combined_data <- reduce(data_list, full_join, by = c("geocode", "geoname", "year"))%>%
+  select(-contains("muid"))
+
+# Print the combined data frame to verify
+print(combined_data)
+  
+#----------------------------------------------------------------------------------------------------------------------
+########---------------- get gti
 gti<- iepg_get(61)%>% 
   select(geocode, geoname, value, year) %>% rename(gti = value)
 
 oecd_countries <- c("Australia", "Austria", "Belgium", "Canada", "Chile", "Colombia", "Costa Rica", "Czech Republic", "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary", "Iceland", "Ireland", "Israel", "Italy", "Japan", "Korea", "Latvia", "Lithuania", "Luxembourg", "Mexico", "Netherlands", "New Zealand", "Norway", "Poland", "Portugal", "Slovak Republic", "Slovenia", "Spain", "Sweden", "Switzerland", "Turkey", "United Kingdom", "United States")
-gti <- gti %>%
-  mutate(oecd = ifelse(geoname %in% oecd_countries, "oecd", "no"))
 
+gti <- gti %>%
+  mutate(oecd = ifelse(geoname %in% THE_OECD, "oecd", "no"))
 
 # Join data frames iteratively
 merged_data <- Reduce(function(x, y) merge(x, y, by = c("geocode", "geoname", "year"), all = TRUE), list(gti, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, tmp9))
-
 
 merged_data <- merged_data %>%
   select(unique(names(.)))%>%
   select(-c(muid.x, muid.y))
 
 merged_data<- na.omit(merged_data)
-
 
 # calculate correlation coefficient
 correlation1 <- cor(merged_data$gti, merged_data$low.levels.of.corruption)
@@ -59,21 +65,8 @@ correlation7 <- cor(merged_data$gti, merged_data$good.relations.with.neighbours)
 correlation8 <- cor(merged_data$gti, merged_data$high.levels.of.human.capital)
 correlation9<- cor(merged_data$gti,  merged_data$ppi)
 
-# two level graph (oecd, non-oecd countries)
-ggplot(merged_data, aes(x = gti, y = acceptance_of_rigths_of_others, fill = oecd)) +
-  geom_point(shape = 21, color = "black") + # Shape 21 is filled circle with black border
-  geom_smooth(data = subset(merged_data, oecd == "oecd"), method = "lm", se = FALSE, aes(group = 1), color = "blue") + # Trend line for oecd
-  geom_smooth(data = subset(merged_data, oecd == "no"), method = "lm", se = FALSE, aes(group = 1), color = "darkgreen") + # Trend line for no
-  geom_text(aes(x = max(merged_data$gti), y = max(merged_data$acceptance_of_rigths_of_others)), # Annotation position
-            label = paste("r =", round(correlation2, 2)), # Annotation text
-            hjust = 1, vjust = 1, color = "red") + # Text alignment and color
-  labs(x = "Global Terrorism Index score", y = "Acceptance of the rigths of others score", title = "") +
-  scale_fill_manual(values = c("darkgreen", "blue"), labels = c("Rest of the World", "OECD"), name = NULL) + # Define colors for oecd and no
-  scale_y_continuous(labels = scales::number_format(accuracy = 1)) + # Format y-axis without decimal places
-  theme_minimal()
-
-
-pCHART_PPIscatter <- ggplot(merged_data, aes(x = gti, y = acceptance_of_rigths_of_others, fill = oecd)) +
+# scatterplot for Acceptance of the rigths of others & GTI (oecd, non-oecd countries)
+CHART_AcceptanceGtiOecdNon <- ggplot(merged_data, aes(x = gti, y = acceptance_of_rigths_of_others, fill = oecd)) +
   geom_point(shape = 21, color = "black") + # Shape 21 is filled circle with black border
   geom_smooth(data = subset(merged_data, oecd == "oecd"), method = "lm", se = FALSE, aes(group = 1), color = "blue") + # Trend line for oecd
   geom_smooth(data = subset(merged_data, oecd == "no"), method = "lm", se = FALSE, aes(group = 1), color = "darkgreen") + # Trend line for no
@@ -92,11 +85,11 @@ More peaceful                         Less peaceful", title = "") +
     legend.box.background = element_rect(color = "white", fill = "white", size = 0.5, linetype = "solid") # Optional: add a box around the legend
   )
 
-print(pCHART_PPIscatter)
+print(CHART_AcceptanceGtiOecdNon)
 
 
-##### ppi
-pCHART_PPIscatter <- ggplot(merged_data, aes(x = gti, y = ppi, fill = oecd)) +
+##################################### scatterplot for ppi & gti (oecd & non)
+CHART_PppiGtiOecdNon  <- ggplot(merged_data, aes(x = gti, y = ppi, fill = oecd)) +
   geom_point(shape = 21, color = "black") + # Shape 21 is filled circle with black border
   geom_smooth(data = subset(merged_data, oecd == "oecd"), method = "lm", se = FALSE, aes(group = 1), color = "blue") + # Trend line for oecd
   geom_smooth(data = subset(merged_data, oecd == "no"), method = "lm", se = FALSE, aes(group = 1), color = "darkgreen") + # Trend line for no
@@ -115,12 +108,12 @@ More peaceful                         Less peaceful", title = "") +
     legend.box.background = element_rect(color = "white", fill = "white", size = 0.5, linetype = "solid") # Optional: add a box around the legend
   )
 
-print(pCHART_PPIscatter)
+print(CHART_PppiGtiOecdNon)
 
 
-
-# one level
-ggplot(merged_data, aes(x = gti, y = acceptance_of_rigths_of_others)) +
+#---------------------------------------------------------------------------------------------------------------------------
+#####----------------------- scatterplot ppi&gti
+CHART_PpiGti<- ggplot(merged_data, aes(x = gti, y = acceptance_of_rigths_of_others)) +
   geom_point(shape = 21, color = "darkgreen", fill = "darkgreen", size = 2) +
   geom_smooth(method = "lm", se = FALSE, color = "blue", linetype = "dashed") + # Trend line for all data
   geom_text(aes(x = max(gti), y = max(acceptance_of_rigths_of_others)), # Annotation position
@@ -129,9 +122,11 @@ ggplot(merged_data, aes(x = gti, y = acceptance_of_rigths_of_others)) +
   labs(x = "Acceptance of the rights of others", y = "GTI score", title = "Correlation between GTI and Acceptance of the rights of others") +
   theme_minimal()
 
+print(CHART_PpiGti)
 
 ########################################################################################################################################
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # correlation results with PPI 2024
+########################################################################################################################################
+##-- correlation results with PPI 2024-------------------------------------------------------------------------------------------------
 
 # load data from GTI 2024
 corr_gti.df = readRDS("~/GitHub/gcerf/02_data/gti_banded_national.rds") 
@@ -149,11 +144,10 @@ corr_gti.df<- corr_gti.df%>%
 # drop_na(value)
 #corr_ppi.list = corr_ppi.df %>% distinct(variablename) %>% pull(variablename)
 
-# PPI Indicators 2024
-ppi_scores_full <- rio::import("~/GitHub/gcerf/02_data/ppi_scores_full.xlsx")
-ppi_scores_full<- ppi_scores_full%>%
+# load PPI 2024
+corr_ppi.df <- rio::import("~/GitHub/gcerf/02_data/ppi_scores_full.xlsx")
+corr_ppi.df<- ppi_scores_full%>%
   select(geocode, variablename, year, value)
-corr_ppi.df<- ppi_scores_full
 
 
 # Combine Data, divide countires into OECD and Non-OECD
@@ -203,28 +197,12 @@ correlates.df <- rbind(corr_gti.df, corr_ppi.df) %>%
 #                                    up_text = "Less Peaceful",
 #                                     down_text = "More Peaceful")
 
-
-# PPI Scatterplot
-CHART_PPIscatter.df = correlates.df %>%
-  dplyr::filter(variablename %in% c("GTI", "PPI Overall Score")) %>%
-  pivot_wider(names_from = variablename, values_from = value) %>%
-  select(OECD, GTI, `PPI Overall Score`) %>%
-  na.omit()
-
-print(CHART_PPIscatter.df)
-
-# Base Plot
-p <- ggplot(CHART_PPIscatter.df, aes(x = GTI, y = `PPI Overall Score`, color = OECD)) +
-  geom_point(alpha = 0.5) +
-  scale_color_manual(values = c("OECD" = "#2D4F5E", "Rest of the World" = "#770A1E")) +
-  labs(x = "GTI Score", y = "PPI Overall Score", color = "") +
-  geom_smooth(method = "lm", se = FALSE, aes(group = OECD)) 
-
-print(p)
-
-
-
 # GTI Theme
+# Chart Fonts
+HEAVY_FONT = "Helvetica LT Pro" 
+LIGHT_FONT = "Helvetica LT Pro Light" 
+
+
 # f_ThemeGTI: Sets themes for GTI charts. Allows for easy customisation
 f_ThemeGTI <- function(plot, chart_info, plottitle, xaxis, yaxis, xgridline, ygridline) {
   finalcaption <- paste0("Source: ", chart_info[["source"]])
@@ -290,14 +268,33 @@ f_ThemeGTI <- function(plot, chart_info, plottitle, xaxis, yaxis, xgridline, ygr
   return(plot)
 }
 
-pCHART_PPIscatter <- f_ThemeGTI(p,
-                                CHART_PPIscatter.df,
+# PPI Scatterplot
+CHART_PPIscatter.df = correlates.df %>%
+  dplyr::filter(variablename %in% c("GTI", "PPI Overall Score")) %>%
+  pivot_wider(names_from = variablename, values_from = value) %>%
+  select(OECD, GTI, `PPI Overall Score`) %>%
+  na.omit()
+
+print(CHART_PPIscatter.df)
+
+# Base Plot
+pCHART_PPIscatter.df <- ggplot(CHART_PPIscatter.df, aes(x = GTI, y = `PPI Overall Score`, color = OECD)) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(values = c("OECD" = "#2D4F5E", "Rest of the World" = "#770A1E")) +
+  labs(x = "GTI Score", y = "PPI Overall Score", color = "") +
+  geom_smooth(method = "lm", se = FALSE, aes(group = OECD)) 
+
+print(pCHART_PPIscatter.df)
+
+pCHART_PPIscatter <- f_ThemeGTI(pCHART_PPIscatter.df,
+                                p,
                                 plottitle = "", 
                                 xaxis = "Include", 
                                 yaxis = "Include", 
                                 xgridline = "Include", 
                                 ygridline = "Include") +
   theme(legend.position = c(.9,.1))
+
 
 pCHART_PPIscatter <- f_ScatterLabels(pCHART_PPIscatter.df, 
                                      xaxis = "Include",
@@ -308,9 +305,35 @@ pCHART_PPIscatter <- f_ScatterLabels(pCHART_PPIscatter.df,
                                      down_text = "More Peaceful",
                                      yposition = 0.02)    
 
+print(pCHART_PPIscatter.df)
+
+pCHART_PPIscatter <- f_ScatterLabels(pCHART_PPIscatter.df, 
+                                     xaxis = "Include",
+                                     yaxis = "Include",
+                                     left_text = "Lower Impact",
+                                     right_text = "Higher Impact",
+                                     up_text = "Less Peaceful",
+                                     down_text = "More Peaceful",
+                                     yposition = 0.02)
 
 
-## -- Correlation Tables
+pCHART_PPIscatter <- pCHART_PPIscatter +
+  theme(
+    legend.position = c(0.8, 0.95),  # Adjust x and y position of the legend
+    legend.justification = c("right", "top"),  # Justify legend to the right and top
+    legend.title = element_blank(),  # Remove legend title
+    legend.background = element_rect(fill = "white", color = NA),  # Set legend background to white
+    plot.background = element_rect(fill = "white", color = NA)  # Set plot background color to white
+  )
+
+
+# Print the plot (to check if it displays correctly)
+print(pCHART_PPIscatter)
+
+grid.arrange(pCHART_PPIscatter)
+
+#---------------------------------------------------------------------------------------------------------------------------------------
+## -- Correlation Tables, themes, domains, indicators----------------------------------------------------------------------------------
 f_CalculateCorrelations <- function(df) {
   df %>%
     pivot_wider(names_from = variablename, values_from = value) %>%
@@ -321,8 +344,6 @@ f_CalculateCorrelations <- function(df) {
     as_tibble(rownames = "Indicator") %>%
     rename(Correlation = GTI)
 }
-
-
 
 # Calculate correlations for OECD countries
 OECD_correlations.df <- correlates.df %>%
@@ -343,7 +364,6 @@ correlation_table.df <- full_join(OECD_correlations.df, ROW_correlations.df, by 
   rename(OECD = Correlation.x, `Rest of the World` = Correlation.y)
 
 
-
 # Tidy the Table
 correlation_table.df <- full_join(correlation_table.df, all_correlations.df, by = "Indicator") %>%
   rename(`All Countries` = Correlation) %>%
@@ -356,23 +376,7 @@ correlation_table.df <- full_join(correlation_table.df, all_correlations.df, by 
   arrange(desc(OECD)) %>% relocate(Index) %>%
   mutate(Indicator = str_to_title(Indicator))
 
-#GPI_DOMAINS = c("Overall Score","Safety and Security", "Ongoing Conflict", "Militarisation")
-# Create GPI Table
-#correlation_tableGPI.df <- correlation_table.df %>%
-#  filter(Index == "GPI") %>%
-# select(Indicator, `All Countries`,`OECD`,`Rest of the World`)
-#domains.table <- correlation_tableGPI.df %>%
-#  filter(Indicator %in% GPI_DOMAINS) %>%
-#  arrange(Indicator != "Overall Score", desc(`All Countries`))
-#indicators.table <- correlation_tableGPI.df %>%
-#  filter(!Indicator %in% GPI_DOMAINS) %>%
-#  arrange(desc(`All Countries`))
-#domains_header <- tibble(Indicator = "GLOBAL PEACE INDEX DOMAINS", `All Countries` = NA, OECD = NA, `Rest of the World` = NA)
-#indicators_header <- tibble(Indicator = "GLOBAL PEACE INDEX INDICATORS", `All Countries` = NA, OECD = NA, `Rest of the World` = NA)
-#TABLE_GPIcorrelates.df <- bind_rows(domains_header, domains.table, indicators_header, indicators.table)
-
 # Create PPI Table
-
 PPI_DOMAINS = c("PPI Overall Score","Well-Functioning Government", "Sound Business Environment", "Low Levels of Corruption", "High Levels of Human Capital",
                 "Acceptance of the Rights of Others", "Good Relations with Neighbours", "Free Flow of Information","Equitable Distribution of Resources")
 PPI_THEMES = c("Attitudes","Institutions","Structures")
@@ -385,16 +389,21 @@ domains.table <- correlation_tablePPI.df %>%
   filter(Indicator %in% PPI_DOMAINS) %>%
   arrange(Indicator != "PPI Overall Score", desc(`All Countries`))
 
-themes.table <- correlation_tableGPI.df %>%
+themes.table <- correlation_tablePPI.df %>%
   filter(Indicator %in% PPI_THEMES) %>%
+  arrange(desc(`All Countries`))
+
+indicators.table <- correlation_tablePPI.df %>%
+  filter(!Indicator %in% PPI_DOMAINS) %>%
   arrange(desc(`All Countries`))
 
 domains_header <- tibble(Indicator = "POSITIVE PEACE INDEX DOMAINS", `All Countries` = NA, OECD = NA, `Rest of the World` = NA)
 indicators_header <- tibble(Indicator = "POSITIVE PEACE INDEX THEMES", `All Countries` = NA, OECD = NA, `Rest of the World` = NA)
 
-TABLE_PPIcorrelates.df <- bind_rows(domains_header, domains.table, indicators_header)
+TABLE_PPIcorrelates.df <- bind_rows(domains_header, domains.table, indicators_header, indicators.table)
 
-# one level
+#-----------------------------------------------------------------------------------------------------------------------------------
+##-- graphs, 2024 data, one level---------------------------------------------------------------------------------------------
 wide_data <- correlates.df %>%
   pivot_wider(names_from = variablename, values_from = value)
 
@@ -417,7 +426,7 @@ ggplot(wide_data, aes(x = GTI, y = `PPI Overall Score`, color = OECD)) +
   geom_smooth(method = "lm", se = FALSE, aes(group = OECD))
 
 
-# other
+##-- other variables-------------------------------------------------------------------------------------------------------
 correlation <- cor(merged_data$gti, merged_data$high.levels.of.human.capital)
 
 ggplot(wide_data, aes(x = GTI, y = `Factionalised elites`)) +
@@ -430,10 +439,7 @@ ggplot(wide_data, aes(x = GTI, y = `Factionalised elites`)) +
   theme_minimal()
 
 
-
-
-#############################################################################################################################
-# calculate correlations for indicators- all countries
+##-- calculate correlations for indicators- all countries, ppi 2024-----------------------------------------------------------------------
 corr_gti.df = readRDS("~/GitHub/gcerf/02_data/gti_banded_national.rds") 
 
 corr_gti.df<- corr_gti.df%>%
@@ -447,7 +453,7 @@ ppi_scores_full<- ppi_scores_full%>%
   select(geocode, variablename, year, value)
 corr_ppi.df<- ppi_scores_full
 
-# Combine Data, divide countires into OECD and Non-OECD
+# Combine Data, divide countries into OECD and Non-OECD
 IEP_NAMES = "~/GitHub/gcerf/02_data/gti-countrynames.xlsx" # Location of finalized list of country name spellings and associated data
 THE_OECD = c("AUS","AUT","BEL","CAN","CHL", "COL", "CRI", "CZE", 
              "DNK", "EST","FIN","FRA","DEU", "GRC", "ISL","IRL", "ISR", "ITA","JPN", 
@@ -463,7 +469,6 @@ correlates.df <- left_join(corr_ppi.df, corr_gti.df, by = c("year", "geocode")) 
   left_join(countries.df)
 combined_df <- left_join(corr_ppi.df, corr_gti.df, by = c("year", "geocode"), suffix = c(".x", ".y")) %>%
   left_join(countries.df)
-
 
 correlation_results <- combined_df %>%
   group_by(variablename.x) %>%
