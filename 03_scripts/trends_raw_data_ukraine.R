@@ -1,7 +1,40 @@
-# pillars- trends
-
+# calculation of trend- improvement versus deterioration
 ppi <- rio::import("~/GitHub/gcerf/02_data/ppi_scores_full.xlsx")
+ukraine_data <- ppi[ppi$country == "Ukraine", ]
 
+# Function to calculate whether values improved, deteriorated, or remained the same between two years
+f_CalculateImprovement <- function(data, year1, year2) {
+  filtered_data <- data %>%
+    filter(year %in% c(year1, year2))
+  
+  result <- filtered_data %>%
+    group_by(variablename) %>%
+    summarize(!!paste0("status_", year2, "bigger", year1) := ifelse(value[year == year2] > value[year == year1], 
+                                                               "Improved", 
+                                                               ifelse(value[year == year2] < value[year == year1], 
+                                                                      "Deteriorated", 
+                                                                      "0")))
+  return(result)
+}
+
+# Apply the function for different year comparisons
+result1 <- f_CalculateImprovement(ukraine_data, 2009, 2022)
+result2 <- f_CalculateImprovement(ukraine_data, 2009, 2020)
+result3 <- f_CalculateImprovement(ukraine_data, 2015, 2020)
+result4 <- f_CalculateImprovement(ukraine_data, 2020, 2022)
+
+### join the results
+tmp <- result1 %>%
+  full_join(result2, by = "variablename") %>%
+  full_join(result3, by = "variablename") %>%
+  full_join(result4, by = "variablename")
+
+# Print the final result to verify
+print(tmp)
+
+####---- graphs- Ukraine and regions---------------------------------------------------------------------------
+################################################################################################################
+# banded score, Ukraine
 ukraine_data <- ppi[ppi$country == "Ukraine", ]
 ukraineukraine_data<- ukraine_data[ukraine_data$variablename == "Quality of information",]
 
@@ -14,7 +47,6 @@ p<- ggplot(ukraineukraine_data, aes(x = year, y = value)) +
   labs(x = "Year", y = "Quality of information", title = "Quality of information", caption = "Source: IEP") +
   theme_minimal()
 
-# Print the plot
 print(p)
 
 # add regional trend
@@ -34,36 +66,7 @@ merged_data <- merge(ukraine_data, tmp, by = "year")
 ggsave("~/GitHub/gcerf/04_outputs/researchersrd.png", p, width=12, height=8, units="in")
 
 ###############################################################################
-###############################################################################
-ppi <- rio::import("~/GitHub/gcerf/02_data/ppi_scores_full.xlsx")
-ukraine_data <- ppi[ppi$country == "Ukraine", ]
-
-filtered_data <- ukraine_data %>%
-  filter(year %in% c(2009, 2022))
-
-# Calculate whether value in year 2009 is higher than in year 2022 for each variablename
-result <- filtered_data %>%
-  group_by(variablename) %>%
-  summarize(higher_2009 = value[year == 2009] > value[year == 2022])
-
-# Print the result
-print(result)
-
-
-filtered_data <- ukraine_data %>%
-  filter(year %in% c(2015, 2020))
-
-# Calculate whether value in year 2009 is higher than in year 2022 for each variablename
-result <- filtered_data %>%
-  group_by(variablename) %>%
-  summarize(higher_2020 = value[year == 2020] > value[year == 2015])
-
-# Print the result
-print(result)
-
-
-###############################################################################
-# trendline- raw data
+####---- researchers r&d, trendline- raw data
 ppi_data<- rio::import("~/GitHub/gcerf/02_data/ppi_data_banded.xlsx")
 ppi_data<- ppi_data%>%
   filter(country == "Ukraine")
@@ -101,7 +104,8 @@ p<- ggplot(ppi_data, aes(x = year)) +
 
 print(p)
 
-############################################################################### quality of information- two regions
+################################################################################################################################
+####---- quality of information- two regions------------------------------------------------------------------------------------
 ppi_data<- rio::import("~/GitHub/gcerf/02_data/ppi_data_banded.xlsx")
 ppi_data<- ppi_data%>%
   filter(country == "Ukraine")
@@ -135,7 +139,7 @@ ppi_data<- left_join(ppi_data, avg1, by = c("year"))
 ppi_data<- left_join(ppi_data, avg2, by = c("year"))
 
 
-p<- ggplot(ppi_data, aes(x = year)) +
+CHART_PlusRegionQualityInfo<- ggplot(ppi_data, aes(x = year)) +
   geom_line(aes(y = `Quality of information`), color = "orange", size = 1) +  # Solid line for 'value', orange color
   geom_line(aes(y = value.x), linetype = "dashed", color = "darkgreen", size = 1) +  # Dashed line for 'avrg', green color
   geom_line(aes(y = value.y), linetype = "dashed", color = "darkblue", size = 1) +  # Dashed line for 'avrg', green color
@@ -147,11 +151,9 @@ p<- ggplot(ppi_data, aes(x = year)) +
   theme_minimal()+
   ylim(-2.5, 2.5)
 
-print(p)
+print(CHART_PlusRegionQualityInfo)
 
-
-
-####
+####---- dissemination of false information----------------------------------------------------------------------------------------
 tmp<- iepg_get(15299) 
 tmp<- tmp%>% filter (geoname == "Ukraine")
 
@@ -164,7 +166,7 @@ p <- ggplot(tmp, aes(x = year, y = value)) +
 
 print(p)
 
-#### improvements (control of corruption, freedom of the press, )
+####---- researchers in r&d-----------------------------------------------------------------------------------
 ppi_data<- rio::import("~/GitHub/gcerf/02_data/ppi_data_banded.xlsx")
 ppi_data<- ppi_data%>%
   filter(country == "Ukraine")
@@ -195,7 +197,7 @@ ppi_data<- left_join(ppi_data, avg1, by = c("year"))
 ppi_data<- left_join(ppi_data, avg2, by = c("year"))
 
 
-p<- ggplot(ppi_data, aes(x = year)) +
+CHART_PlusRegionResearchers<- ggplot(ppi_data, aes(x = year)) +
   geom_line(aes(y = `Researchers in R&D`), color = "orange", size = 1) +  # Solid line for 'value', orange color
   geom_line(aes(y = value.x), linetype = "dashed", color = "darkgreen", size = 1) +  # Dashed line for 'avrg', green color
   geom_line(aes(y = value.y), linetype = "dashed", color = "darkblue", size = 1) +  # Dashed line for 'avrg', green color
@@ -207,10 +209,9 @@ p<- ggplot(ppi_data, aes(x = year)) +
   scale_y_continuous(labels = comma_format())
 
 
-print(p)
+print(CHART_PlusRegionResearchers)
 
-
-########################################### exclusion by socio-economic group
+####----exclusion by socio-economic group---------------------------------------------------------------------------------------
 ppi_data<- rio::import("~/GitHub/gcerf/02_data/ppi_data_banded.xlsx")
 ppi_data<- ppi_data%>%
   filter(country == "Ukraine")
@@ -244,7 +245,7 @@ ppi_data<- left_join(ppi_data, avg1, by = c("year"))
 ppi_data<- left_join(ppi_data, avg2, by = c("year"))
 
 
-p<- ggplot(ppi_data, aes(x = year)) +
+CHART_PlusRegionGroupExclusion<- ggplot(ppi_data, aes(x = year)) +
   geom_line(aes(y = `Exclusion by socio-economic group`), color = "orange", size = 1) +  # Solid line for 'value', orange color
   geom_line(aes(y = value.x), linetype = "dashed", color = "darkgreen", size = 1) +  # Dashed line for 'avrg', green color
   geom_line(aes(y = value.y), linetype = "dashed", color = "darkblue", size = 1) +  # Dashed line for 'avrg', green color
@@ -255,11 +256,10 @@ p<- ggplot(ppi_data, aes(x = year)) +
   annotate("text", x = max(ppi_data$year), y = tail(ppi_data$value.y, 1), label = "Europe", vjust = -0.5, hjust = 1) +
   theme_minimal()
 
-print(p)
+print(CHART_PlusRegionGroupExclusion)
 
 
-
-########################################### freedom of the press
+####---- freedom of the press--------------------------------------------------------------------------------------------------
 ppi_data<- rio::import("~/GitHub/gcerf/02_data/ppi_data_banded.xlsx")
 ppi_data<- ppi_data%>%
   filter(country == "Ukraine")
@@ -293,7 +293,7 @@ ppi_data<- left_join(ppi_data, avg1, by = c("year"))
 ppi_data<- left_join(ppi_data, avg2, by = c("year"))
 
 
-p<- ggplot(ppi_data, aes(x = year)) +
+CHART_PlusRegionPressFreedom<- ggplot(ppi_data, aes(x = year)) +
   geom_line(aes(y = `Freedom of the press`), color = "orange", size = 1) +  # Solid line for 'value', orange color
   geom_line(aes(y = value.x), linetype = "dashed", color = "darkgreen", size = 1) +  # Dashed line for 'avrg', green color
   geom_line(aes(y = value.y), linetype = "dashed", color = "darkblue", size = 1) +  # Dashed line for 'avrg', green color
@@ -305,12 +305,10 @@ p<- ggplot(ppi_data, aes(x = year)) +
   theme_minimal()+
   ylim(-60,0)
 
-print(p)
+print(CHART_PlusRegionPressFreedom)
 
 
-
-
-########################################### control of corruption
+#####---- control of corruption-------------------------------------------------------------------------------------------
 ppi_data<- rio::import("~/GitHub/gcerf/02_data/ppi_data_banded.xlsx")
 ppi_data<- ppi_data%>%
   filter(country == "Ukraine")
@@ -344,7 +342,7 @@ ppi_data<- left_join(ppi_data, avg1, by = c("year"))
 ppi_data<- left_join(ppi_data, avg2, by = c("year"))
 
 
-p<- ggplot(ppi_data, aes(x = year)) +
+CHART_PlusRegionCorruptionControl<- ggplot(ppi_data, aes(x = year)) +
   geom_line(aes(y = `Control of corruption`), color = "orange", size = 1) +  # Solid line for 'value', orange color
   geom_line(aes(y = value.x), linetype = "dashed", color = "darkgreen", size = 1) +  # Dashed line for 'avrg', green color
   geom_line(aes(y = value.y), linetype = "dashed", color = "darkblue", size = 1) +  # Dashed line for 'avrg', green color
@@ -355,7 +353,7 @@ p<- ggplot(ppi_data, aes(x = year)) +
   annotate("text", x = max(ppi_data$year), y = tail(ppi_data$value.y, 1), label = "Europe", vjust = -0.5, hjust = 1) +
   theme_minimal()
 
-print(p)
+print(CHART_PlusRegionCorruptionControl)
 
 
 

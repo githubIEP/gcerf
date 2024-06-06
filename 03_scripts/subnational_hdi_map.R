@@ -1,10 +1,4 @@
-# Libraries
-library(iepg)
-library(tidyverse)
-library(sf)
-library(stringr)
-library(ggplot2)
-
+# hdi
 hdi<- iepg_search()
 
 # Get Shapefile
@@ -30,7 +24,6 @@ merged_data <- sdhi_f %>%
 merged_data <- merged_data %>%
   mutate(value = (value.x + value.y) / 2)
 
-
 f_ScoringBands <- function(value, bands) {
   cut(value, breaks = bands, include.lowest = TRUE)
 }
@@ -48,7 +41,7 @@ ukr.map <- ukr.map %>%
   left_join(UKR_HDI.df, by = ("geoname"))
 
 # Base Plot
-ukr_plot <- ggplot(data = ukr.map) +
+MAP_subnat_hdi_ukr <- ggplot(data = ukr.map) +
   geom_sf(aes(fill = value), color = "white") +  # Specify fill based on the 'value' column
   theme_void() +
   theme(
@@ -64,15 +57,14 @@ ukr_plot <- ggplot(data = ukr.map) +
 (0=Low, 1=High)", caption = "Source: UNDP, IEP Calculations")
 
 # To display the plot in your R environment
-print(ukr_plot)
+print(MAP_subnat_hdi_ukr)
 
 ###########################################################################################################################
 ##########################################################################################################################
-######################################################################################################### components of hdi
+####----components of hdi -----------------------------------------------------------------------------------------------
 # Get Shapefile
 ukr.map <- iepg_get_gadm("level1") %>%
   dplyr:: filter(str_detect (geocode, "UKR")) # 
-
 
 tmp<- iepg_get(19870)
 tmp <- tmp %>%
