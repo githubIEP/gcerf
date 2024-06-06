@@ -43,20 +43,19 @@ gti<- iepg_get(61)%>%
 oecd_countries <- c("Australia", "Austria", "Belgium", "Canada", "Chile", "Colombia", "Costa Rica", "Czech Republic", "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary", "Iceland", "Ireland", "Israel", "Italy", "Japan", "Korea", "Latvia", "Lithuania", "Luxembourg", "Mexico", "Netherlands", "New Zealand", "Norway", "Poland", "Portugal", "Slovak Republic", "Slovenia", "Spain", "Sweden", "Switzerland", "Turkey", "United Kingdom", "United States")
 
 gti <- gti %>%
-  mutate(oecd = ifelse(geoname %in% THE_OECD, "oecd", "no"))
+  mutate(oecd = ifelse(geoname %in% oecd_countries, "oecd", "no"))
 
 # Join data frames iteratively
-merged_data <- Reduce(function(x, y) merge(x, y, by = c("geocode", "geoname", "year"), all = TRUE), list(gti, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, tmp9))
+merged_data <- merge(combined_data, gti, by = c("geocode", "geoname", "year"), all = TRUE)
 
 merged_data <- merged_data %>%
-  select(unique(names(.)))%>%
-  select(-c(muid.x, muid.y))
+  select(unique(names(.)))
 
 merged_data<- na.omit(merged_data)
 
 # calculate correlation coefficient
 correlation1 <- cor(merged_data$gti, merged_data$low.levels.of.corruption)
-correlation2 <- cor(merged_data$gti, merged_data$acceptance_of_rigths_of_others)
+correlation2 <- cor(merged_data$gti, merged_data$acceptance.of.rigths.of.others)
 correlation3 <- cor(merged_data$gti, merged_data$sounds.business.environment)
 correlation4 <- cor(merged_data$gti, merged_data$well.functioning.government)
 correlation5 <- cor(merged_data$gti, merged_data$equitable.distribution.of.resources)
@@ -66,11 +65,11 @@ correlation8 <- cor(merged_data$gti, merged_data$high.levels.of.human.capital)
 correlation9<- cor(merged_data$gti,  merged_data$ppi)
 
 # scatterplot for Acceptance of the rigths of others & GTI (oecd, non-oecd countries)
-CHART_AcceptanceGtiOecdNon <- ggplot(merged_data, aes(x = gti, y = acceptance_of_rigths_of_others, fill = oecd)) +
+CHART_AccGtiOecdNon <- ggplot(merged_data, aes(x = gti, y = acceptance.of.rigths.of.others, fill = oecd)) +
   geom_point(shape = 21, color = "black") + # Shape 21 is filled circle with black border
   geom_smooth(data = subset(merged_data, oecd == "oecd"), method = "lm", se = FALSE, aes(group = 1), color = "blue") + # Trend line for oecd
   geom_smooth(data = subset(merged_data, oecd == "no"), method = "lm", se = FALSE, aes(group = 1), color = "darkgreen") + # Trend line for no
-  geom_text(aes(x = max(merged_data$gti), y = max(merged_data$acceptance_of_rigths_of_others)), # Annotation position
+  geom_text(aes(x = max(merged_data$gti), y = max(merged_data$acceptance.of.rigths.of.others)), # Annotation position
             label = paste("r =", round(0.34, 2)), # Annotation text
             hjust = 1, vjust = 1, color = "red") + # Text alignment and color
   labs(x = "Global Terrorism Index score
@@ -85,7 +84,7 @@ More peaceful                         Less peaceful", title = "") +
     legend.box.background = element_rect(color = "white", fill = "white", size = 0.5, linetype = "solid") # Optional: add a box around the legend
   )
 
-print(CHART_AcceptanceGtiOecdNon)
+print(CHART_AccGtiOecdNon)
 
 
 ##################################### scatterplot for ppi & gti (oecd & non)
@@ -113,13 +112,13 @@ print(CHART_PppiGtiOecdNon)
 
 #---------------------------------------------------------------------------------------------------------------------------
 #####----------------------- scatterplot ppi&gti
-CHART_PpiGti<- ggplot(merged_data, aes(x = gti, y = acceptance_of_rigths_of_others)) +
+CHART_PpiGti<- ggplot(merged_data, aes(x = gti, y = acceptance.of.rigths.of.others)) +
   geom_point(shape = 21, color = "darkgreen", fill = "darkgreen", size = 2) +
   geom_smooth(method = "lm", se = FALSE, color = "blue", linetype = "dashed") + # Trend line for all data
-  geom_text(aes(x = max(gti), y = max(acceptance_of_rigths_of_others)), # Annotation position
+  geom_text(aes(x = max(gti), y = max(acceptance.of.rigths.of.others)), # Annotation position
             label = paste("r =", round(correlation2, 2)), # Annotation text
             hjust = 1, vjust = 1, color = "black") + # Text alignment and color
-  labs(x = "Acceptance of the rights of others", y = "GTI score", title = "Correlation between GTI and Acceptance of the rights of others") +
+  labs(x = "GTI socre", y = "Acceptance of the rigths of others score", title = "Correlation between GTI and Acceptance of the rights of others") +
   theme_minimal()
 
 print(CHART_PpiGti)
@@ -476,3 +475,4 @@ correlation_results <- combined_df %>%
 
 # Print the correlation results for all countries
 print(correlation_results)
+
